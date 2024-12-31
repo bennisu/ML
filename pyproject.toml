@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "machine-learning"
+version = "0.1.0"
+description = ""
+authors = ["Benjamin Summ"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pandas = "^2.1.4"
+scikit-learn = "^1.6.0"
+
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.14.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
