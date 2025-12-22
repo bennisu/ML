@@ -65,7 +65,7 @@ def get_avg_features(matchday: int, lookback_matches: int, team_name: str, seaso
 
 
 def update_form(matchday: int, team_name: str, stealing_fraction: float, forms_df: pd.DataFrame, season_results: pd.DataFrame) -> float:
-    """_summary_
+    """Update the form of a given team for a fixed matchday based on previous form and the stealing fraction.
 
     Args:
         matchday (int): current matchday to compute form feature for
@@ -139,6 +139,3 @@ if __name__ == "__main__":
 
 
     ## Average features are in principle there, next: form etc.
-
-
-
