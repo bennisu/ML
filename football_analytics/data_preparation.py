@@ -125,6 +125,92 @@ def compute_form_df_for_season(results_df: pd.DataFrame, stealing_fraction: floa
     return form_df
 
 
+def _turn_classifier_into_home_points(classifier: int) -> int:
+    if classifier == -1:
+        return 0
+    elif classifier == 0:
+        return 1
+    elif classifier == 1:
+        return 3
+    else:
+        print(f"Uknown result classifier {classifier}! Please check the input data!")
+        exit(-1)
+
+
+def _turn_classifier_into_away_points(classifier: int) -> int:
+    if classifier == -1:
+        return 3
+    elif classifier == 0:
+        return 1
+    elif classifier == 1:
+        return 0
+    else:
+        print(f"Uknown result classifier {classifier}! Please check the input data!")
+        exit(-1)
+
+
+def _compute_streak_weight(current_matchday: int, considered_matchday: int | None = None, lookback_matches: int | None = None) -> float:
+    assert considered_matchday is not None
+    assert lookback_matches is not None
+    return 2*(current_matchday - considered_matchday + lookback_matches + 1)/(3*lookback_matches*(lookback_matches + 1))
+
+def compute_streak(team_name: str, matchday: int, lookback_matches: int, results_df: pd.DataFrame) -> tuple[float, float]:
+    """Compute streak and weighted streak for a single team on a single matchday.
+
+    Args:
+        team_name (str): team for which the values are computed
+        matchday (int): matchday for which the values should be used as input
+        lookback_matches (int): number of matches to consider in the streak computation
+        results_df (pd.DataFrame): results of the full season
+
+    Returns:
+        streak (float), weighted_streak (float): computed streak and weighted streak
+    """
+    relevant_matchdays = season_data[(results_df["matchday"] < matchday) & (results_df["matchday"] > matchday - lookback_matches - 1)]
+    home_match_classifiers = relevant_matchdays[relevant_matchdays["home_team"] == team_name]["classifier"]
+    home_match_matchdays = relevant_matchdays[relevant_matchdays["home_team"] == team_name]["matchday"]
+    home_match_matchdays = home_match_matchdays.apply(_compute_streak_weight, considered_matchday=matchday, lookback_matches=lookback_matches)
+    home_match_points = home_match_classifiers.map(_turn_classifier_into_home_points)
+    home_match_points = pd.merge(home_match_points, home_match_matchdays, on="uid")
+    away_match_classifiers = relevant_matchdays[relevant_matchdays["away_team"] == team_name]["classifier"]
+    away_match_matchdays = relevant_matchdays[relevant_matchdays["away_team"] == team_name]["matchday"]
+    away_match_matchdays = away_match_matchdays.apply(_compute_streak_weight, considered_matchday=matchday, lookback_matches=lookback_matches)
+    away_match_points = away_match_classifiers.map(_turn_classifier_into_away_points)
+    away_match_points = pd.merge(away_match_points, away_match_matchdays, on="uid")
+    points_df = pd.concat([home_match_points, away_match_points])
+    points_df.rename({"classifier": "points", "matchday": "streak_weight"}, inplace=True, axis=1)
+    weighted_streak = np.sum(points_df["points"]*points_df["streak_weight"])
+    streak = np.sum(points_df["points"]/(3*lookback_matches))
+    return streak, weighted_streak
+
+
+def compute_streak_df(results_df: pd.DataFrame, lookback_matches: int) -> pd.DataFrame:
+    """Compute all streaks and weighted streaks for a given season and number of lookback matches.
+
+    Args:
+        results_df (pd.DataFrame): dataframe containing the results of a season
+        lookback_matches (int): number of matches to base the streaks on
+
+    Returns:
+        pd.DataFrame: dataframe containing team, matchday and the streaks to be used as features for this matchday
+    """
+    team_names = results_df["home_team"].drop_duplicates().values
+    streak_df = pd.DataFrame(columns=["team_name", "matchday", "streak", "weighted_streak"])
+    for matchday in results_df["matchday"].drop_duplicates().values[lookback_matches::]:
+        matchday_streaks = []
+        matchday_weighted_streaks = []
+        sorted_team_list = []
+        for team in team_names:
+            streak, weighted_streak = compute_streak(team, matchday, lookback_matches, results_df)
+            matchday_streaks.append(streak)
+            matchday_weighted_streaks.append(weighted_streak)
+            sorted_team_list.append(team)
+        matchday_df = pd.DataFrame({"team_name": sorted_team_list, "matchday": [matchday]*len(sorted_team_list), "streak": matchday_streaks, "weighted_streak": matchday_weighted_streaks})
+        streak_df = pd.concat([streak_df, matchday_df], ignore_index=True)
+    return streak_df
+
+
+
 if __name__ == "__main__":
     season = "2021-2022"
     data_dir_path = os.path.join(os.path.expanduser("~"), "Data Science & AI", "football_analytics")
@@ -135,7 +221,7 @@ if __name__ == "__main__":
     #new_form = update_form(2, "fc-augsburg", 0.33, form_df, season_data)
     #print(new_form)
     #print(get_avg_features(3, 2, "1-fc-koeln", season_data))
-    print(compute_form_df_for_season(season_data, 0.33))
+    print(compute_streak_df(season_data, 3))
 
 
     ## Average features are in principle there, next: form etc.
