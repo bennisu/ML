@@ -209,6 +209,21 @@ def compute_streak_df(results_df: pd.DataFrame, lookback_matches: int) -> pd.Dat
         streak_df = pd.concat([streak_df, matchday_df], ignore_index=True)
     return streak_df
 
+def add_goal_efficiencies_to_df(result_df: pd.DataFrame) -> pd.DataFrame:
+    """Add home and away team goal efficiencies to a set of matches stored in result_df.
+    When shots_on_target is 0, the goal efficiency is set to 0.
+
+    Args:
+        result_df (pd.DataFrame): dataframe containing the match results for which the efficiencies are added
+
+    Returns:
+        pd.DataFrame: input dataframe with home and away team goal efficienciy columns added
+    """
+    column_prefixes = ["home_team", "away_team"]
+    for column_prefix in column_prefixes:
+        result_df[f"{column_prefix}_goal_efficiency"] = result_df[f"{column_prefix}_goals"]/result_df[f"{column_prefix}_shots_on_target"]
+        result_df.fillna({f"{column_prefix}_goal_efficiency": 0}, inplace=True)
+    return result_df
 
 
 if __name__ == "__main__":
@@ -224,4 +239,5 @@ if __name__ == "__main__":
     print(compute_streak_df(season_data, 3))
 
 
-    ## Average features are in principle there, next: form etc.
+    ## TODO: prepare goal difference, goal efficiency, shot accuracy, and bring all the features together for first analyses
+    # In the analyses consider "different time scales" like, short-term streak and long-term streak
