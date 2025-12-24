@@ -209,6 +209,7 @@ def compute_streak_df(results_df: pd.DataFrame, lookback_matches: int) -> pd.Dat
         streak_df = pd.concat([streak_df, matchday_df], ignore_index=True)
     return streak_df
 
+
 def add_goal_efficiencies_to_df(result_df: pd.DataFrame) -> pd.DataFrame:
     """Add home and away team goal efficiencies to a set of matches stored in result_df.
     When shots_on_target is 0, the goal efficiency is set to 0.
@@ -226,6 +227,23 @@ def add_goal_efficiencies_to_df(result_df: pd.DataFrame) -> pd.DataFrame:
     return result_df
 
 
+def add_shot_accuracies_to_df(result_df: pd.DataFrame) -> pd.DataFrame:
+    """Add home and away team shot accuracies to a set of matches stored in result_df.
+    When shots_on_target+shots_off_target is 0, the shot accuracy is set to 0.
+
+    Args:
+        result_df (pd.DataFrame): dataframe containing the match results for which the accuracies are added
+
+    Returns:
+        pd.DataFrame: input dataframe with home and away team shot accuracy columns added
+    """
+    column_prefixes = ["home_team", "away_team"]
+    for column_prefix in column_prefixes:
+        result_df[f"{column_prefix}_shot_accuracy"] = result_df[f"{column_prefix}_shots_on_target"]/(result_df[f"{column_prefix}_shots_on_target"]+result_df[f"{column_prefix}_shots_off_target"])
+        result_df.fillna({f"{column_prefix}_shot_accuracy": 0}, inplace=True)
+    return result_df
+
+
 if __name__ == "__main__":
     season = "2021-2022"
     data_dir_path = os.path.join(os.path.expanduser("~"), "Data Science & AI", "football_analytics")
@@ -239,5 +257,5 @@ if __name__ == "__main__":
     print(compute_streak_df(season_data, 3))
 
 
-    ## TODO: prepare goal difference, goal efficiency, shot accuracy, and bring all the features together for first analyses
+    ## TODO: prepare goal difference and bring all the features together for first analyses
     # In the analyses consider "different time scales" like, short-term streak and long-term streak
