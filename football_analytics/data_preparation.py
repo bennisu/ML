@@ -4,6 +4,10 @@ import os
 import typing
 
 
+RELEVANT_COLUMS = ["matchday", "home_team", "away_team", "classifier", "home_team_goal_efficiency",
+       "away_team_goal_efficiency", "home_team_shot_accuracy",
+       "away_team_shot_accuracy"]
+
 def _switch_home_and_away_str(input_str: str) -> str:
     if "home" in input_str:
         return input_str.replace("home", "away")
@@ -316,18 +320,71 @@ def add_shot_accuracies_to_df(result_df: pd.DataFrame) -> pd.DataFrame:
     return result_df
 
 
-if __name__ == "__main__":
-    season = "2021-2022"
+def compute_season_feature_df(season: str, lookback_matches: int) -> pd.DataFrame:
     data_dir_path = os.path.join(os.path.expanduser("~"), "Data Science & AI", "football_analytics")
     data_path = os.path.join(data_dir_path, f"season_{season}.ods")
+    output_path = os.path.join(data_dir_path, f"season_{season}_prepared.ods")
     season_data = pd.read_excel(data_path)
     season_data.set_index("uid", inplace=True)
 
+    goal_difference_df = compute_goal_difference_df(season_data)
+    streak_df = compute_streak_df(season_data, lookback_matches=2)
+    form_df = compute_form_df_for_season(season_data, 0.33)
+    average_features_df = compute_average_features_df(season_data, lookback_matches=2)
+
+    team_wise_features = pd.merge(average_features_df, form_df, on=["team_name", "matchday"])
+    team_wise_features = pd.merge(team_wise_features, streak_df, on=["team_name", "matchday"])
+    team_wise_features = pd.merge(team_wise_features, goal_difference_df, on=["team_name", "matchday"])
+
+    extended_df = add_goal_efficiencies_to_df(season_data)
+    extended_df = add_shot_accuracies_to_df(season_data)
+    extended_df = extended_df[RELEVANT_COLUMS]
+
+    columns_to_rename = list(team_wise_features.columns)
+    columns_to_rename.remove("team_name")
+    columns_to_rename.remove("matchday")
+    home_team_column_mapping = {column: f"home_{column}" for column in columns_to_rename}
+    home_team_column_mapping["team_name"] = "home_team"
+    away_team_column_mapping = {column: f"away_{column}" for column in columns_to_rename}
+    away_team_column_mapping["team_name"] = "away_team"
+
+    home_team_features = team_wise_features.rename(home_team_column_mapping, axis=1)
+    away_team_features = team_wise_features.rename(away_team_column_mapping, axis=1)
+    merged_df = pd.merge(extended_df, home_team_features, on=["home_team", "matchday"], how="left")
+    merged_df = pd.merge(merged_df, away_team_features, on=["away_team", "matchday"], how="left")
+    merged_df.dropna(inplace=True)
+    merged_df.drop(["home_team", "away_team"], axis=1, inplace=True)
+
+    return merged_df
+
+
+if __name__ == "__main__":
+    seasons = ["2020-2021", "2021-2022", "2022-2023", "2023-2024", "2024-2025"]
+    lookback_matches = 3
+    season_dfs = []
+
+    for season in seasons:
+        season_dfs.append(compute_season_feature_df(season, lookback_matches))
+
+    final_df = pd.concat(season_dfs)
+    correlation_df = final_df.corr()
+    print(correlation_df)
+
+    #data_dir_path = os.path.join(os.path.expanduser("~"), "Data Science & AI", "football_analytics")
+    #data_path = os.path.join(data_dir_path, f"season_{season}.ods")
+    #season_data = pd.read_excel(data_path)
+    #season_data.set_index("uid", inplace=True)
+
     #new_form = update_form(2, "fc-augsburg", 0.33, form_df, season_data)
     #print(new_form)
-    print(get_avg_features(3, 2, "1-fc-koeln", season_data))
+    #print(get_avg_features(3, 2, "1-fc-koeln", season_data))
     #print(compute_streak_df(season_data, 3))
 
 
-    ## TODO: bring all the features together for first analyses
-    # In the analyses consider "different time scales" like, short-term streak and long-term streak
+    ## TODO: Double-check if all the features are included in the data and start analysing correlations
+    # correlations with the classifiers are of primal intereste, however, correlations among variables are also important
+    # don't forget to play with lookback times
+    # even correlations of streaks/averages with different lookback times could be of interest
+    # try pearson and spearman
+    # what about MI?
+    # What about clustering?
