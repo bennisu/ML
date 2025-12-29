@@ -210,6 +210,52 @@ def compute_streak_df(results_df: pd.DataFrame, lookback_matches: int) -> pd.Dat
     return streak_df
 
 
+def compute_goal_difference(team_name: str, matchday: int, result_df: pd.DataFrame) -> int:
+    """Compute the goal difference up to (exclusive) a given matchday for a given team in a given season.
+
+    Args:
+        team_name (str): team to compute the goal difference for
+        matchday (int): matchday to use the goal difference as input feature for
+        result_df (pd.DataFrame): season results
+
+    Returns:
+        int: computed goal difference for team <team_name> up to (exclusive) matchday <matchday>
+    """
+    matches_as_ht = result_df[result_df["home_team"] == team_name]
+    matches_as_ht = matches_as_ht[matches_as_ht["matchday"] < matchday]
+    scored_goals = matches_as_ht["home_team_goals"].sum()
+    received_goals = matches_as_ht["away_team_goals"].sum()
+    matches_as_at = result_df[result_df["away_team"] == team_name]
+    matches_as_at = matches_as_at[matches_as_at["matchday"] < matchday]
+    scored_goals += matches_as_at["away_team_goals"].sum()
+    received_goals += matches_as_at["home_team_goals"].sum()
+    return (scored_goals - received_goals)
+
+
+
+def compute_goal_difference_df(results_df: pd.DataFrame) -> pd.DataFrame:
+    """Compute a dataframe with the input goal difference for each matchday based on a dataframe of season results.
+
+    Args:
+        results_df (pd.DataFrame): dataframe of season results
+
+    Returns:
+        pd.DataFrame: dataframe containing the goal difference for each team as input for each matchday
+    """
+    team_names = results_df["home_team"].drop_duplicates().values
+    goal_difference_df = pd.DataFrame(columns=["team_name", "matchday", "goal_difference"])
+    for matchday in results_df["matchday"].drop_duplicates().values:
+        matchday_goal_differences = []
+        sorted_team_list = []
+        for team in team_names:
+            goal_difference = compute_goal_difference(team, matchday, results_df)
+            matchday_goal_differences.append(goal_difference)
+            sorted_team_list.append(team)
+        matchday_df = pd.DataFrame({"team_name": sorted_team_list, "matchday": [matchday]*len(sorted_team_list), "goal_difference": matchday_goal_differences})
+        goal_difference_df = pd.concat([goal_difference_df, matchday_df], ignore_index=True)
+    return goal_difference_df
+
+
 def add_goal_efficiencies_to_df(result_df: pd.DataFrame) -> pd.DataFrame:
     """Add home and away team goal efficiencies to a set of matches stored in result_df.
     When shots_on_target is 0, the goal efficiency is set to 0.
@@ -257,5 +303,5 @@ if __name__ == "__main__":
     print(compute_streak_df(season_data, 3))
 
 
-    ## TODO: prepare goal difference and bring all the features together for first analyses
+    ## TODO: bring all the features together for first analyses
     # In the analyses consider "different time scales" like, short-term streak and long-term streak
