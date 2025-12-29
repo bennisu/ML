@@ -64,6 +64,32 @@ def get_avg_features(matchday: int, lookback_matches: int, team_name: str, seaso
     return relevant_matches_df.mean()
 
 
+def compute_average_features_df(results_df: pd.DataFrame, lookback_matches: int) -> pd.DataFrame:
+    """Compute a dataframe with the input average features for each matchday based on a dataframe of season results.
+
+    Args:
+        results_df (pd.DataFrame): dataframe of season results
+        lookback_matches (int): number of matches to average over
+
+    Returns:
+        pd.DataFrame: dataframe containing the average input features for each team as input for each matchday
+    """
+    team_names = results_df["home_team"].drop_duplicates().values
+    full_df = pd.DataFrame()
+    for matchday in results_df["matchday"].drop_duplicates().values[lookback_matches::]:
+        matchday_features = []
+        sorted_team_list = []
+        for team in team_names:
+            average_features = get_avg_features(matchday, lookback_matches, team, results_df)
+            average_features["team_name"] = team
+            average_features["matchday"] = matchday
+            matchday_features.append(average_features)
+            sorted_team_list.append(team)
+        matchday_df = pd.DataFrame(matchday_features)
+        full_df = pd.concat([full_df, matchday_df], ignore_index=True)
+    return full_df
+
+
 def update_form(matchday: int, team_name: str, stealing_fraction: float, forms_df: pd.DataFrame, season_results: pd.DataFrame) -> float:
     """Update the form of a given team for a fixed matchday based on previous form and the stealing fraction.
 
@@ -299,8 +325,8 @@ if __name__ == "__main__":
 
     #new_form = update_form(2, "fc-augsburg", 0.33, form_df, season_data)
     #print(new_form)
-    #print(get_avg_features(3, 2, "1-fc-koeln", season_data))
-    print(compute_streak_df(season_data, 3))
+    print(get_avg_features(3, 2, "1-fc-koeln", season_data))
+    #print(compute_streak_df(season_data, 3))
 
 
     ## TODO: bring all the features together for first analyses
