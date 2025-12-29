@@ -166,7 +166,7 @@ def compute_streak(team_name: str, matchday: int, lookback_matches: int, results
     Returns:
         streak (float), weighted_streak (float): computed streak and weighted streak
     """
-    relevant_matchdays = season_data[(results_df["matchday"] < matchday) & (results_df["matchday"] > matchday - lookback_matches - 1)]
+    relevant_matchdays = results_df[(results_df["matchday"] < matchday) & (results_df["matchday"] > matchday - lookback_matches - 1)]
     home_match_classifiers = relevant_matchdays[relevant_matchdays["home_team"] == team_name]["classifier"]
     home_match_matchdays = relevant_matchdays[relevant_matchdays["home_team"] == team_name]["matchday"]
     home_match_matchdays = home_match_matchdays.apply(_compute_streak_weight, considered_matchday=matchday, lookback_matches=lookback_matches)
